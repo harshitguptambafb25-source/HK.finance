@@ -1,0 +1,2569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Finance Analytics Lab</title>
+
+<!--
+===============================================================
+FINANCE ANALYTICS LAB
+GENERAL / EXCEL-FIRST FINANCIAL ANALYSIS WEBSITE
+
+IMPORTANT:
+- No CV information
+- No recruiter section
+- No company API
+- No NSE/BSE search
+- User supplies the financial data
+- XLSX/CSV is parsed in-browser
+- Calculations are formula-driven
+- Missing inputs remain blank; they are NEVER silently changed to 0
+
+EXCEL FORMAT RECOMMENDATION:
+Column A = Metric
+Column B onward = periods
+
+Metric | FY2023 | FY2024 | FY2025
+Revenue | ...
+EBITDA | ...
+...
+
+You can also upload a workbook with multiple sheets.
+Each sheet is scanned for recognizable financial line items.
+
+EDIT GUIDE:
+1. COLORS -> :root
+2. FINANCIAL LINE ITEMS -> ALIASES
+3. CALCULATIONS -> CALCULATION ENGINE
+4. RATIO INTERPRETATION -> ratioStatus()
+5. DCF ASSUMPTIONS -> DCF MODULE
+6. EXPORTS -> EXPORT MODULE
+===============================================================
+-->
+
+<style>
+:root{
+ --bg:#f4f6f9;
+ --surface:#ffffff;
+ --surface2:#f8fafc;
+ --navy:#0b1730;
+ --blue:#1b4d8f;
+ --blue2:#2d6bb3;
+ --gold:#b88a32;
+ --text:#172033;
+ --muted:#687386;
+ --line:#dfe5ee;
+ --green:#16734b;
+ --red:#b42318;
+ --amber:#9a6700;
+ --shadow:0 14px 40px rgba(11,23,48,.08);
+ --radius:16px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+ margin:0;background:var(--bg);color:var(--text);
+ font-family:Inter,Segoe UI,Arial,sans-serif;
+}
+button,input,select{font:inherit}
+button{cursor:pointer}
+a{text-decoration:none;color:inherit}
+.container{width:min(1450px,94%);margin:auto}
+
+/* NAVIGATION */
+.nav{
+ position:sticky;top:0;z-index:100;
+ background:rgba(255,255,255,.95);
+ backdrop-filter:blur(14px);
+ border-bottom:1px solid var(--line);
+}
+.nav-inner{
+ height:68px;display:flex;align-items:center;
+ justify-content:space-between;gap:20px;
+}
+.logo{font-weight:900;letter-spacing:.7px;color:var(--navy)}
+.logo span{color:var(--gold)}
+.nav-links{display:flex;gap:18px;font-size:13px;color:var(--muted)}
+.nav-links a:hover{color:var(--blue)}
+
+/* HERO */
+.hero{
+ padding:78px 0 58px;
+ background:linear-gradient(135deg,#fff 0%,#eef3f9 100%);
+}
+.hero-grid{
+ display:grid;grid-template-columns:1.35fr .65fr;
+ gap:45px;align-items:center;
+}
+.eyebrow{
+ font-size:11px;font-weight:900;letter-spacing:2px;
+ color:var(--gold);text-transform:uppercase;
+}
+h1{font-size:clamp(40px,6vw,76px);line-height:.98;margin:13px 0}
+.hero h2{font-size:24px;color:var(--blue);margin:0 0 16px}
+.hero p{max-width:800px;color:var(--muted);font-size:17px;line-height:1.75}
+.hero-card{
+ background:var(--surface);border:1px solid var(--line);
+ padding:28px;border-radius:var(--radius);box-shadow:var(--shadow);
+}
+.hero-card h3{margin-top:0}
+.feature-list{display:grid;gap:10px}
+.feature{
+ padding:13px;border:1px solid var(--line);
+ border-radius:11px;background:var(--surface2);
+ font-size:13px;font-weight:700;
+}
+
+/* COMMON */
+section{padding:58px 0}
+.section-head{margin-bottom:25px}
+.section-head h2{font-size:34px;margin:6px 0}
+.section-head p{color:var(--muted);line-height:1.6}
+.card{
+ background:var(--surface);border:1px solid var(--line);
+ border-radius:var(--radius);box-shadow:var(--shadow);
+}
+.btn{
+ border:0;border-radius:10px;padding:11px 16px;
+ background:var(--blue);color:#fff;font-weight:800;
+}
+.btn:hover{filter:brightness(.94)}
+.btn.secondary{background:#fff;color:var(--navy);border:1px solid var(--line)}
+.btn.gold{background:var(--gold)}
+.btn.danger{background:var(--red)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.hidden{display:none!important}
+
+/* ANALYTICS LAB */
+.lab-shell{
+ background:var(--navy);color:#fff;
+ border-radius:24px;padding:30px;
+ box-shadow:var(--shadow);
+}
+.lab-top{
+ display:flex;justify-content:space-between;
+ gap:20px;align-items:end;margin-bottom:25px;
+}
+.lab-top p{color:#b9c5d8;max-width:780px;line-height:1.6}
+.upload{
+ border:2px dashed #71809b;
+ background:#101f3b;
+ border-radius:18px;padding:42px;text-align:center;
+ transition:.2s;
+}
+.upload.drag{border-color:#fff;background:#162c52}
+.upload input{display:none}
+.upload-icon{font-size:40px}
+.upload h3{margin:8px 0}
+.upload small{color:#b9c5d8}
+.file-info{margin-top:14px;color:#d9e0ea;font-size:13px}
+
+/* WORKSPACE */
+.workspace{
+ margin-top:24px;background:#fff;color:var(--text);
+ border-radius:18px;overflow:hidden;
+}
+.tabs{
+ display:flex;overflow:auto;
+ border-bottom:1px solid var(--line);
+ background:#fafbfd;
+}
+.tab{
+ padding:15px 18px;background:none;border:0;
+ border-bottom:3px solid transparent;
+ font-size:12px;font-weight:900;white-space:nowrap;
+ color:var(--muted);
+}
+.tab.active{color:var(--blue);border-bottom-color:var(--gold)}
+.panel{padding:26px}
+
+/* KPI */
+.kpi{
+ padding:18px;background:var(--surface2);
+ border:1px solid var(--line);border-radius:13px;
+}
+.kpi small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;font-weight:900}
+.kpi strong{display:block;font-size:25px;margin-top:6px;color:var(--navy)}
+.kpi .sub{font-size:11px;color:var(--muted);margin-top:5px}
+
+/* TABLE */
+.table-wrap{
+ overflow:auto;border:1px solid var(--line);
+ border-radius:12px;background:#fff;
+}
+table{border-collapse:collapse;width:100%;min-width:800px}
+th,td{
+ padding:11px 13px;border-bottom:1px solid var(--line);
+ font-size:12px;text-align:right;white-space:nowrap;
+}
+th:first-child,td:first-child{text-align:left}
+th{
+ background:#f6f8fb;color:var(--muted);
+ font-size:10px;text-transform:uppercase;
+ position:sticky;top:0;
+}
+td:first-child{font-weight:700}
+
+/* STATUS */
+.status{
+ display:inline-flex;padding:5px 9px;
+ border-radius:999px;font-size:10px;font-weight:900;
+}
+.status.valid{background:#e7f6ef;color:var(--green)}
+.status.warning{background:#fff3d6;color:var(--amber)}
+.status.error{background:#fde8e7;color:var(--red)}
+.status.neutral{background:#edf1f6;color:var(--muted)}
+
+/* UPLOAD PREVIEW / MAPPING */
+.mapping-row{
+ display:grid;grid-template-columns:1.2fr 1fr 100px;
+ gap:10px;align-items:center;
+ padding:10px 0;border-bottom:1px solid var(--line);
+}
+.mapping-row select,.mapping-row input{
+ width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;
+ background:#fff;
+}
+.info{
+ padding:13px 15px;border-left:4px solid var(--gold);
+ background:#fff8e9;border-radius:8px;
+ color:#5c4c25;font-size:12px;line-height:1.6;
+}
+
+/* CHART */
+.chart{
+ display:flex;align-items:end;gap:12px;
+ height:270px;padding:25px 20px 20px;
+ border:1px solid var(--line);border-radius:14px;
+ background:#fbfcfe;
+}
+.bar{
+ flex:1;min-width:20px;max-width:100px;
+ background:var(--blue);
+ border-radius:7px 7px 0 0;
+ position:relative;
+ transition:.5s;
+}
+.bar:hover{background:var(--blue2)}
+.bar span{
+ position:absolute;bottom:100%;left:50%;
+ transform:translateX(-50%);
+ font-size:9px;color:var(--muted);
+ margin-bottom:5px;
+ white-space:nowrap;
+}
+
+/* CALCULATOR */
+.calc-card{padding:20px}
+.field{margin-bottom:12px}
+.field label{
+ display:block;font-size:10px;color:var(--muted);
+ text-transform:uppercase;font-weight:900;margin-bottom:6px;
+}
+.field input,.field select{
+ width:100%;padding:10px;border:1px solid var(--line);
+ border-radius:8px;background:#fff;
+}
+.result{
+ margin-top:14px;padding:14px;
+ background:#f5f8fc;border-radius:10px;
+ border:1px solid var(--line);
+}
+
+/* FOOTER */
+footer{background:#091328;color:#c8d1df;padding:48px 0}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:30px}
+footer h3{color:#fff;margin-top:0}
+footer p{font-size:12px;line-height:1.7}
+
+/* TOAST */
+#toast{
+ position:fixed;right:22px;bottom:22px;z-index:200;
+ background:var(--navy);color:#fff;
+ padding:14px 18px;border-radius:10px;
+ box-shadow:var(--shadow);display:none;font-size:13px;
+}
+
+/* PRINT */
+@media print{
+ .nav,.hero,.upload,.actions,footer{display:none!important}
+ body{background:#fff}
+ .lab-shell{background:#fff;color:#000;padding:0}
+ .workspace{box-shadow:none}
+ .panel{display:block!important}
+}
+
+@media(max-width:1000px){
+ .hero-grid,.grid2{grid-template-columns:1fr}
+ .grid4{grid-template-columns:repeat(2,1fr)}
+ .grid3{grid-template-columns:1fr 1fr}
+}
+@media(max-width:600px){
+ .nav-links{display:none}
+ .grid3,.grid4{grid-template-columns:1fr}
+ .lab-shell{padding:18px}
+ .upload{padding:28px 15px}
+}
+</style>
+</head>
+
+<body>
+
+<nav class="nav">
+<div class="container nav-inner">
+ <div class="logo">FINANCE <span>ANALYTICS LAB</span></div>
+ <div class="nav-links">
+  <a href="#home">Home</a>
+  <a href="#analytics">Analytics</a>
+  <a href="#calculators">Calculators</a>
+  <a href="#methodology">Methodology</a>
+ </div>
+</div>
+</nav>
+
+<header id="home" class="hero">
+<div class="container hero-grid">
+ <div>
+  <div class="eyebrow">EXCEL-DRIVEN FINANCIAL ANALYSIS</div>
+  <h1>Finance Analytics Lab</h1>
+  <h2>Upload. Validate. Analyse. Value.</h2>
+  <p>
+   A general-purpose financial analysis workspace. Upload your own
+   Excel or CSV financial data and turn it into structured financial
+   statements, ratios, valuation, credit analysis, forecasting and
+   downloadable datasets.
+  </p>
+  <div class="actions">
+   <a class="btn gold" href="#analytics">Open Analytics Lab</a>
+   <a class="btn secondary" href="#calculators">Calculator Lab</a>
+  </div>
+ </div>
+
+ <div class="hero-card">
+  <h3>What this system does</h3>
+  <div class="feature-list">
+   <div class="feature">01 — Excel / CSV ingestion</div>
+   <div class="feature">02 — Automatic financial-line mapping</div>
+   <div class="feature">03 — Validation before calculations</div>
+   <div class="feature">04 — Financial ratios & trends</div>
+   <div class="feature">05 — DCF & scenario analysis</div>
+   <div class="feature">06 — Credit diagnostics</div>
+   <div class="feature">07 — Forecasting</div>
+   <div class="feature">08 — CSV / Power BI-ready export</div>
+  </div>
+ </div>
+</div>
+</header>
+
+
+<section id="analytics">
+<div class="container">
+<div class="lab-shell">
+
+ <div class="lab-top">
+  <div>
+   <div class="eyebrow">CORE WORKSPACE</div>
+   <h2 style="margin:5px 0">Financial Analysis Workspace</h2>
+   <p>
+    Upload the workbook containing the numbers you want to analyse.
+    The engine first creates a normalized dataset and validates available
+    inputs. Calculations are then performed only from available inputs.
+   </p>
+  </div>
+ </div>
+
+ <div id="dropZone" class="upload">
+  <input id="fileInput" type="file" accept=".xlsx,.xls,.csv">
+  <div class="upload-icon">↑</div>
+  <h3>Upload Financial Data</h3>
+  <small>Supported: XLSX, XLS, CSV</small>
+  <div class="actions" style="justify-content:center;margin-top:18px">
+   <button class="btn gold" id="browseBtn">Choose Excel / CSV</button>
+   <button class="btn secondary" id="demoBtn">Load Blank Structure</button>
+  </div>
+  <div id="fileInfo" class="file-info">No file selected.</div>
+ </div>
+
+ <div id="workspace" class="workspace hidden">
+
+  <div class="tabs">
+   <button class="tab active" data-panel="overview">Overview</button>
+   <button class="tab" data-panel="financials">Financial Statements</button>
+   <button class="tab" data-panel="ratios">Ratios</button>
+   <button class="tab" data-panel="valuation">Valuation</button>
+   <button class="tab" data-panel="credit">Credit</button>
+   <button class="tab" data-panel="forecast">Forecast</button>
+   <button class="tab" data-panel="mapping">Mapping</button>
+   <button class="tab" data-panel="validation">Validation</button>
+   <button class="tab" data-panel="export">Export</button>
+  </div>
+
+  <div id="overview" class="panel"></div>
+  <div id="financials" class="panel hidden"></div>
+  <div id="ratios" class="panel hidden"></div>
+  <div id="valuation" class="panel hidden"></div>
+  <div id="credit" class="panel hidden"></div>
+  <div id="forecast" class="panel hidden"></div>
+  <div id="mapping" class="panel hidden"></div>
+  <div id="validation" class="panel hidden"></div>
+  <div id="export" class="panel hidden"></div>
+
+ </div>
+</div>
+</div>
+</section>
+
+
+<section id="calculators">
+<div class="container">
+ <div class="section-head">
+  <div class="eyebrow">CALCULATOR LAB</div>
+  <h2>Transparent Finance Calculators</h2>
+  <p>Each result shows the formula used. Inputs are controlled by you.</p>
+ </div>
+
+ <div class="grid3">
+
+  <div class="card calc-card">
+   <h3>CAGR</h3>
+   <div class="field"><label>Beginning Value</label><input id="cagrStart" type="number"></div>
+   <div class="field"><label>Ending Value</label><input id="cagrEnd" type="number"></div>
+   <div class="field"><label>Years</label><input id="cagrYears" type="number"></div>
+   <button class="btn" onclick="calculatorCAGR()">Calculate</button>
+   <div id="cagrResult" class="result">Enter inputs.</div>
+  </div>
+
+  <div class="card calc-card">
+   <h3>NPV</h3>
+   <div class="field"><label>Discount Rate %</label><input id="npvRate" type="number"></div>
+   <div class="field"><label>Initial Investment</label><input id="npvInitial" type="number"></div>
+   <div class="field"><label>Cash Flows</label><input id="npvFlows" placeholder="100,120,150,180"></div>
+   <button class="btn" onclick="calculatorNPV()">Calculate</button>
+   <div id="npvResult" class="result">Enter inputs.</div>
+  </div>
+
+  <div class="card calc-card">
+   <h3>IRR</h3>
+   <div class="field"><label>Cash Flows</label><input id="irrFlows" placeholder="-100,30,40,50"></div>
+   <button class="btn" onclick="calculatorIRR()">Calculate</button>
+   <div id="irrResult" class="result">Enter cash flows.</div>
+  </div>
+
+  <div class="card calc-card">
+   <h3>WACC</h3>
+   <div class="field"><label>Equity Value</label><input id="waccE" type="number"></div>
+   <div class="field"><label>Debt Value</label><input id="waccD" type="number"></div>
+   <div class="field"><label>Cost of Equity %</label><input id="waccKe" type="number"></div>
+   <div class="field"><label>Pre-tax Cost of Debt %</label><input id="waccKd" type="number"></div>
+   <div class="field"><label>Tax Rate %</label><input id="waccTax" type="number"></div>
+   <button class="btn" onclick="calculatorWACC()">Calculate</button>
+   <div id="waccResult" class="result">Enter inputs.</div>
+  </div>
+
+  <div class="card calc-card">
+   <h3>DSCR</h3>
+   <div class="field"><label>Cash Available for Debt Service</label><input id="dscrCash" type="number"></div>
+   <div class="field"><label>Interest</label><input id="dscrInterest" type="number"></div>
+   <div class="field"><label>Principal Repayment</label><input id="dscrPrincipal" type="number"></div>
+   <button class="btn" onclick="calculatorDSCR()">Calculate</button>
+   <div id="dscrResult" class="result">Enter inputs.</div>
+  </div>
+
+  <div class="card calc-card">
+   <h3>EV / EBITDA</h3>
+   <div class="field"><label>Enterprise Value</label><input id="evValue" type="number"></div>
+   <div class="field"><label>EBITDA</label><input id="evEbitda" type="number"></div>
+   <button class="btn" onclick="calculatorEVEBITDA()">Calculate</button>
+   <div id="evResult" class="result">Enter inputs.</div>
+  </div>
+
+ </div>
+</div>
+</section>
+
+
+<section id="methodology">
+<div class="container">
+ <div class="section-head">
+  <div class="eyebrow">METHODOLOGY</div>
+  <h2>Calculation Integrity</h2>
+  <p>
+   The application follows a simple principle: <b>never manufacture data</b>.
+   If an input does not exist, the dependent calculation is shown as unavailable.
+ </p>
+ </div>
+
+ <div class="grid3">
+  <div class="card" style="padding:22px">
+   <h3>01. Normalize</h3>
+   <p style="color:var(--muted);line-height:1.7;font-size:13px">
+    Uploaded labels are matched against an editable alias dictionary.
+    You can modify the dictionary to match your own Excel terminology.
+   </p>
+  </div>
+  <div class="card" style="padding:22px">
+   <h3>02. Validate</h3>
+   <p style="color:var(--muted);line-height:1.7;font-size:13px">
+    Missing periods, missing metrics, balance-sheet relationships and
+    consistency checks are surfaced before analysis.
+   </p>
+  </div>
+  <div class="card" style="padding:22px">
+   <h3>03. Calculate</h3>
+   <p style="color:var(--muted);line-height:1.7;font-size:13px">
+    Ratios and valuation outputs use explicit formulas and protected
+    division. No denominator means no fabricated result.
+   </p>
+  </div>
+ </div>
+</div>
+</section>
+
+
+<footer>
+<div class="container footer-grid">
+ <div>
+  <h3>Finance Analytics Lab</h3>
+  <p>General-purpose Excel-driven financial analysis platform.</p>
+ </div>
+ <div>
+  <h3>Data</h3>
+  <p>User supplied<br>Normalized<br>Validated</p>
+ </div>
+ <div>
+  <h3>Disclaimer</h3>
+  <p>Analytical and educational tool. Outputs should be independently reviewed before financial decisions.</p>
+ </div>
+</div>
+</footer>
+
+<div id="toast"></div>
+
+
+<script>
+/*
+================================================================
+GLOBAL APPLICATION STATE
+================================================================
+*/
+const APP={
+ file:null,
+ fileType:null,
+ rawRows:[],
+ periods:[],
+ data:{},
+ aliases:{},
+ validation:[],
+ company:"Uploaded Dataset"
+};
+
+
+/*
+================================================================
+UTILITY FUNCTIONS
+================================================================
+*/
+const $=id=>document.getElementById(id);
+
+function number(value){
+ if(value===null||value===undefined||value==="") return null;
+ if(typeof value==="number") return Number.isFinite(value)?value:null;
+
+ let s=String(value).trim();
+ if(!s || s==="-" || s==="—") return null;
+
+ let negative=false;
+ if(/^\(.*\)$/.test(s)){negative=true;s=s.slice(1,-1)}
+
+ s=s.replace(/,/g,"")
+    .replace(/₹/g,"")
+    .replace(/\$/g,"")
+    .replace(/€/g,"")
+    .replace(/%/g,"")
+    .trim();
+
+ const n=Number(s);
+ if(!Number.isFinite(n)) return null;
+ return negative?-n:n;
+}
+
+function safeDivide(a,b){
+ if(a===null||b===null||a===undefined||b===undefined) return null;
+ if(!Number.isFinite(Number(a))||!Number.isFinite(Number(b))) return null;
+ if(Number(b)===0) return null;
+ return Number(a)/Number(b);
+}
+
+function formatNumber(v,d=2){
+ return v===null||v===undefined||!Number.isFinite(Number(v))
+  ? "—"
+  : Number(v).toLocaleString("en-IN",{maximumFractionDigits:d});
+}
+
+function formatPercent(v){
+ return v===null||v===undefined||!Number.isFinite(Number(v))
+  ? "—"
+  : (Number(v)*100).toFixed(2)+"%";
+}
+
+function clean(text){
+ return String(text??"")
+  .toLowerCase()
+  .replace(/&/g,"and")
+  .replace(/[^a-z0-9]+/g," ")
+  .replace(/\s+/g," ")
+  .trim();
+}
+
+function showToast(message){
+ const el=$("toast");
+ el.textContent=message;
+ el.style.display="block";
+ clearTimeout(window.__toastTimer);
+ window.__toastTimer=setTimeout(()=>el.style.display="none",2500);
+}
+
+
+/*
+================================================================
+FINANCIAL LINE ITEM DICTIONARY
+================================================================
+EDIT THIS SECTION IF YOUR EXCEL USES DIFFERENT NAMES.
+================================================================
+*/
+const ALIASES={
+ Revenue:[
+  "revenue","sales","net sales","turnover",
+  "total revenue","operating revenue","revenue from operations"
+ ],
+ OtherIncome:[
+  "other income","other operating income"
+ ],
+ COGS:[
+  "cogs","cost of goods sold","cost of sales",
+  "cost of revenue","cost of goods"
+ ],
+ EBITDA:[
+  "ebitda","operating ebitda"
+ ],
+ Depreciation:[
+  "depreciation","amortisation","amortization",
+  "depreciation and amortisation","depreciation and amortization",
+  "d&a"
+ ],
+ EBIT:[
+  "ebit","operating profit","operating income",
+  "profit from operations"
+ ],
+ Interest:[
+  "interest","interest expense","finance cost",
+  "finance costs","interest and finance charges"
+ ],
+ PBT:[
+  "pbt","profit before tax","profit before taxation",
+  "profit before income tax"
+ ],
+ Tax:[
+  "tax","income tax","tax expense",
+  "provision for tax"
+ ],
+ PAT:[
+  "pat","profit after tax","net income",
+  "net profit","profit for the year"
+ ],
+ Cash:[
+  "cash","cash and cash equivalents",
+  "cash equivalents","cash & cash equivalents"
+ ],
+ Receivables:[
+  "receivables","trade receivables",
+  "accounts receivable","trade debtors"
+ ],
+ Inventory:[
+  "inventory","inventories","stock"
+ ],
+ CurrentAssets:[
+  "current assets","total current assets"
+ ],
+ CurrentLiabilities:[
+  "current liabilities","total current liabilities"
+ ],
+ TotalAssets:[
+  "total assets"
+ ],
+ TotalLiabilities:[
+  "total liabilities","liabilities"
+ ],
+ Equity:[
+  "equity","shareholders equity","shareholders funds",
+  "total equity","net worth","owners equity"
+ ],
+ Borrowings:[
+  "borrowings","debt","total debt",
+  "loans","financial liabilities"
+ ],
+ NetDebt:[
+  "net debt"
+ ],
+ PPE:[
+  "ppe","property plant equipment",
+  "property plant and equipment","fixed assets"
+ ],
+ Intangibles:[
+  "intangible assets","intangibles"
+ ],
+ RetainedEarnings:[
+  "retained earnings","surplus"
+ ],
+ CFO:[
+  "cfo","cash flow from operations",
+  "cash flow from operating activities",
+  "net cash from operating activities"
+ ],
+ CFI:[
+  "cfi","cash flow from investing",
+  "cash flow from investing activities",
+  "net cash from investing activities"
+ ],
+ CFF:[
+  "cff","cash flow from financing",
+  "cash flow from financing activities",
+  "net cash from financing activities"
+ ],
+ Capex:[
+  "capex","capital expenditure",
+  "purchase of property plant equipment",
+  "purchase of fixed assets"
+ ],
+ WorkingCapital:[
+  "working capital","net working capital"
+ ]
+};
+
+
+/*
+================================================================
+FILE UPLOAD
+================================================================
+*/
+$("browseBtn").onclick=()=>$("fileInput").click();
+
+$("dropZone").onclick=e=>{
+ if(e.target.closest("button"))return;
+ $("fileInput").click();
+};
+
+$("fileInput").onchange=e=>{
+ if(e.target.files[0]) processFile(e.target.files[0]);
+};
+
+$("dropZone").ondragover=e=>{
+ e.preventDefault();
+ $("dropZone").classList.add("drag");
+};
+
+$("dropZone").ondragleave=()=>{
+ $("dropZone").classList.remove("drag");
+};
+
+$("dropZone").ondrop=e=>{
+ e.preventDefault();
+ $("dropZone").classList.remove("drag");
+ if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+};
+
+
+/*
+================================================================
+XLSX / XLS PARSER
+================================================================
+SheetJS is loaded dynamically so the single HTML file remains
+portable.
+
+No API key is required.
+================================================================
+*/
+async function loadSheetJS(){
+
+ if(window.XLSX)return window.XLSX;
+
+ return new Promise((resolve,reject)=>{
+
+  const script=document.createElement("script");
+
+  script.src=
+   "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+
+  script.onload=()=>resolve(window.XLSX);
+  script.onerror=()=>reject(
+   new Error("Could not load Excel parser. Internet connection required for XLSX parsing.")
+  );
+
+  document.head.appendChild(script);
+ });
+}
+
+
+async function processFile(file){
+
+ const extension=file.name.split(".").pop().toLowerCase();
+
+ if(!["xlsx","xls","csv"].includes(extension)){
+  showToast("Only XLSX, XLS and CSV files are supported.");
+  return;
+ }
+
+ APP.file=file;
+ APP.fileType=extension;
+
+ $("fileInfo").innerHTML=
+  `<b>${file.name}</b> • ${(file.size/1024).toFixed(1)} KB • ${extension.toUpperCase()}`;
+
+ $("workspace").classList.remove("hidden");
+
+ try{
+
+  if(extension==="csv"){
+   const text=await file.text();
+   APP.rawRows=parseCSV(text);
+  }else{
+   const XLSX=await loadSheetJS();
+   const buffer=await file.arrayBuffer();
+   APP.rawRows=parseExcel(buffer,XLSX);
+  }
+
+  if(!APP.rawRows.length){
+   throw new Error("No usable rows were found.");
+  }
+
+  const normalized=normalizeRows(APP.rawRows);
+
+  APP.periods=normalized.periods;
+  APP.data=normalized.data;
+  APP.validation=validateData();
+
+  renderAll();
+
+  showToast(
+   `${APP.periods.length} period(s) detected. ${APP.rawRows.length} row(s) scanned.`
+  );
+
+ }catch(error){
+
+  console.error(error);
+
+  $("fileInfo").innerHTML+=
+   `<br><span style="color:#ffb4ab">${error.message}</span>`;
+
+  showToast("Could not process file.");
+ }
+}
+
+
+/*
+================================================================
+CSV PARSER
+================================================================
+Handles quoted commas more safely than split(",").
+================================================================
+*/
+function parseCSV(text){
+
+ const rows=[];
+ let row=[];
+ let cell="";
+ let quote=false;
+
+ for(let i=0;i<text.length;i++){
+
+  const ch=text[i];
+  const next=text[i+1];
+
+  if(ch==='"'){
+
+   if(quote && next==='"'){
+    cell+='"';
+    i++;
+   }else{
+    quote=!quote;
+   }
+
+  }else if(ch===","&&!quote){
+
+   row.push(cell);
+   cell="";
+
+  }else if((ch==="\n"||ch==="\r")&&!quote){
+
+   if(ch==="\r"&&next==="\n")i++;
+
+   row.push(cell);
+
+   if(row.some(x=>String(x).trim()!==""))rows.push(row);
+
+   row=[];
+   cell="";
+
+  }else{
+   cell+=ch;
+  }
+ }
+
+ row.push(cell);
+ if(row.some(x=>String(x).trim()!==""))rows.push(row);
+
+ if(!rows.length)return[];
+
+ const headers=rows[0].map(x=>String(x).trim());
+
+ return rows.slice(1).map(r=>{
+  const obj={};
+  headers.forEach((h,i)=>obj[h]=r[i]??"");
+  return obj;
+ });
+}
+
+
+/*
+================================================================
+EXCEL PARSER
+================================================================
+Every sheet is converted into rows.
+A hidden _sheet property tells us where the row originated.
+================================================================
+*/
+function parseExcel(buffer,XLSX){
+
+ const workbook=XLSX.read(buffer,{
+  type:"array",
+  cellDates:false,
+  raw:true
+ });
+
+ const all=[];
+
+ workbook.SheetNames.forEach(sheetName=>{
+
+  const worksheet=workbook.Sheets[sheetName];
+
+  const rows=XLSX.utils.sheet_to_json(
+   worksheet,
+   {defval:""}
+  );
+
+  rows.forEach(row=>{
+   all.push({
+    _sheet:sheetName,
+    ...row
+   });
+  });
+ });
+
+ return all;
+}
+
+
+/*
+================================================================
+NORMALIZATION ENGINE
+================================================================
+The first column is treated as the financial line-item label.
+All other columns are treated as periods.
+
+If your Excel is different, this is the FIRST place to edit.
+================================================================
+*/
+function findMetric(label){
+
+ const normalized=clean(label);
+
+ for(const [metric,aliases] of Object.entries(ALIASES)){
+
+  for(const alias of aliases){
+
+   const a=clean(alias);
+
+   if(normalized===a)return metric;
+
+   if(normalized.includes(a))return metric;
+  }
+ }
+
+ return null;
+}
+
+
+function normalizeRows(rows){
+
+ if(!rows.length)return{periods:[],data:{}};
+
+ const headers=Object.keys(rows[0])
+  .filter(h=>h!=="_sheet");
+
+ if(headers.length<2){
+  return{periods:[],data:{}};
+ }
+
+ /*
+ --------------------------------------------------------------
+ FIRST COLUMN = METRIC
+ REMAINING COLUMNS = PERIODS
+ --------------------------------------------------------------
+ */
+ const metricColumn=headers[0];
+ const periods=headers.slice(1);
+
+ const data={};
+
+ Object.keys(ALIASES).forEach(metric=>{
+  data[metric]=Array(periods.length).fill(null);
+ });
+
+ rows.forEach(row=>{
+
+  const label=row[metricColumn];
+  const metric=findMetric(label);
+
+  if(!metric)return;
+
+  periods.forEach((period,index)=>{
+
+   const value=number(row[period]);
+
+   /*
+   First detected value wins.
+   This prevents duplicate labels from silently overwriting
+   each other.
+   */
+   if(value!==null && data[metric][index]===null){
+    data[metric][index]=value;
+   }
+  });
+ });
+
+ return{periods,data};
+}
+
+
+/*
+================================================================
+DERIVED FINANCIAL METRICS
+================================================================
+All ratios are formula-driven.
+
+IMPORTANT:
+Do not replace null with zero.
+================================================================
+*/
+function metricAt(metric,i){
+ return APP.data[metric]?.[i]??null;
+}
+
+
+function derived(i){
+
+ const d=APP.data;
+
+ const revenue=metricAt("Revenue",i);
+ const ebitda=metricAt("EBITDA",i);
+ const ebit=metricAt("EBIT",i);
+ const pat=metricAt("PAT",i);
+ const assets=metricAt("TotalAssets",i);
+ const equity=metricAt("Equity",i);
+ const debt=metricAt("Borrowings",i);
+ const cash=metricAt("Cash",i);
+ const currentAssets=metricAt("CurrentAssets",i);
+ const currentLiabilities=metricAt("CurrentLiabilities",i);
+ const interest=metricAt("Interest",i);
+
+ const calculatedNetDebt=
+  debt!==null&&cash!==null
+   ? debt-cash
+   : null;
+
+ return{
+
+  revenue,
+  ebitda,
+  ebit,
+  pat,
+  assets,
+  equity,
+  debt,
+  cash,
+  currentAssets,
+  currentLiabilities,
+  interest,
+
+  EBITDA_Margin:safeDivide(ebitda,revenue),
+
+  EBIT_Margin:safeDivide(ebit,revenue),
+
+  Net_Margin:safeDivide(pat,revenue),
+
+  ROA:safeDivide(pat,assets),
+
+  ROE:safeDivide(pat,equity),
+
+  Current_Ratio:safeDivide(
+   currentAssets,
+   currentLiabilities
+  ),
+
+  Debt_Equity:safeDivide(
+   debt,
+   equity
+  ),
+
+  Interest_Coverage:safeDivide(
+   ebit,
+   interest
+  ),
+
+  Net_Debt:
+   metricAt("NetDebt",i)!==null
+    ? metricAt("NetDebt",i)
+    : calculatedNetDebt,
+
+  CFO:metricAt("CFO",i),
+
+  Capex:metricAt("Capex",i),
+
+  WorkingCapital:metricAt("WorkingCapital",i)
+ };
+}
+
+
+/*
+================================================================
+VALIDATION ENGINE
+================================================================
+The application does NOT claim a balance sheet is valid unless
+the required values are available.
+
+Tolerance for arithmetic checks:
+0.01 in uploaded units.
+================================================================
+*/
+function validateData(){
+
+ const results=[];
+
+ if(!APP.periods.length){
+  results.push({
+   type:"ERROR",
+   message:"No financial periods detected."
+  });
+  return results;
+ }
+
+ APP.periods.forEach((period,i)=>{
+
+  const d=APP.data;
+
+  /*
+  A = L + E
+  */
+  const assets=metricAt("TotalAssets",i);
+  const liabilities=metricAt("TotalLiabilities",i);
+  const equity=metricAt("Equity",i);
+
+  if(
+   assets!==null&&
+   liabilities!==null&&
+   equity!==null
+  ){
+
+   const difference=
+    Math.abs(assets-(liabilities+equity));
+
+   results.push({
+    type:difference<=0.01?"VALID":"ERROR",
+    message:
+     `${period}: Balance sheet check ${
+      difference<=0.01
+       ?"passed."
+       :"failed — Assets ≠ Liabilities + Equity."
+     }`
+   });
+
+  }else{
+
+   results.push({
+    type:"WARNING",
+    message:
+     `${period}: Full A = L + E check unavailable because one or more required values are missing.`
+   });
+  }
+
+
+  /*
+  Net debt check
+  */
+  const debt=metricAt("Borrowings",i);
+  const cash=metricAt("Cash",i);
+  const netDebt=metricAt("NetDebt",i);
+
+  if(debt!==null&&cash!==null&&netDebt!==null){
+
+   const diff=Math.abs(netDebt-(debt-cash));
+
+   results.push({
+    type:diff<=0.01?"VALID":"WARNING",
+    message:
+     `${period}: Net Debt consistency ${
+      diff<=0.01?"passed.":"needs review."
+     }`
+   });
+  }
+
+
+  /*
+  Income statement identity
+  */
+  const ebitda=metricAt("EBITDA",i);
+  const depreciation=metricAt("Depreciation",i);
+  const ebit=metricAt("EBIT",i);
+
+  if(
+   ebitda!==null&&
+   depreciation!==null&&
+   ebit!==null
+  ){
+
+   const diff=
+    Math.abs(ebit-(ebitda-depreciation));
+
+   results.push({
+    type:diff<=0.01?"VALID":"WARNING",
+    message:
+     `${period}: EBITDA − D&A = EBIT ${
+      diff<=0.01?"passed.":"does not reconcile; review source data."
+     }`
+   });
+  }
+
+ });
+
+ /*
+ Required line-item detection
+ */
+ const important=[
+  "Revenue",
+  "EBITDA",
+  "EBIT",
+  "PAT",
+  "Cash",
+  "Equity",
+  "Borrowings"
+ ];
+
+ important.forEach(metric=>{
+
+  const exists=
+   (APP.data[metric]||[]).some(v=>v!==null);
+
+  if(!exists){
+
+   results.push({
+    type:"WARNING",
+    message:`${metric}: not detected in uploaded dataset.`
+   });
+  }
+ });
+
+ return results;
+}
+
+
+/*
+================================================================
+RENDER ENGINE
+================================================================
+*/
+function renderAll(){
+
+ renderOverview();
+ renderFinancials();
+ renderRatios();
+ renderValuation();
+ renderCredit();
+ renderForecast();
+ renderMapping();
+ renderValidation();
+ renderExport();
+}
+
+
+/*
+================================================================
+OVERVIEW
+================================================================
+*/
+function renderOverview(){
+
+ const latest=APP.periods.length-1;
+ const x=derived(latest);
+
+ $("overview").innerHTML=`
+
+ <div class="grid4">
+
+  ${kpi("Periods",APP.periods.length)}
+
+  ${kpi(
+   "Latest Revenue",
+   formatNumber(x.revenue)
+  )}
+
+  ${kpi(
+   "Latest EBITDA Margin",
+   formatPercent(x.EBITDA_Margin)
+  )}
+
+  ${kpi(
+   "Latest ROE",
+   formatPercent(x.ROE)
+  )}
+
+ </div>
+
+ <div style="margin-top:20px" class="grid3">
+
+  ${kpi(
+   "Net Debt",
+   formatNumber(x.Net_Debt)
+  )}
+
+  ${kpi(
+   "Current Ratio",
+   formatNumber(x.Current_Ratio)
+  )}
+
+  ${kpi(
+   "Interest Coverage",
+   formatNumber(x.Interest_Coverage)
+  )}
+
+ </div>
+
+ <div style="margin-top:20px" class="info">
+  <b>Data source:</b> User-uploaded ${
+   APP.file?APP.file.name:"dataset"
+  }.
+  <br>
+  <b>Periods:</b> ${APP.periods.join(", ")||"None detected"}.
+  <br>
+  <b>Calculation policy:</b> Missing values remain unavailable;
+  the engine does not silently convert missing financial data to zero.
+ </div>
+ `;
+}
+
+
+function kpi(label,value){
+
+ return `
+ <div class="kpi">
+  <small>${label}</small>
+  <strong>${value}</strong>
+ </div>
+ `;
+}
+
+
+/*
+================================================================
+FINANCIAL STATEMENTS
+================================================================
+*/
+function renderFinancials(){
+
+ const metrics=[
+  "Revenue","OtherIncome","COGS","EBITDA",
+  "Depreciation","EBIT","Interest","PBT","Tax","PAT",
+  "Cash","Receivables","Inventory",
+  "CurrentAssets","CurrentLiabilities",
+  "TotalAssets","TotalLiabilities","Equity",
+  "Borrowings","NetDebt","PPE","Intangibles",
+  "RetainedEarnings","CFO","CFI","CFF",
+  "Capex","WorkingCapital"
+ ];
+
+ $("financials").innerHTML=`
+
+ <div class="table-wrap">
+
+ <table>
+
+ <thead>
+ <tr>
+  <th>Financial Metric</th>
+  ${APP.periods.map(p=>`<th>${p}</th>`).join("")}
+ </tr>
+ </thead>
+
+ <tbody>
+
+ ${metrics.map(metric=>`
+
+  <tr>
+
+   <td>${metric}</td>
+
+   ${APP.periods.map((_,i)=>`
+
+    <td>${formatNumber(metricAt(metric,i))}</td>
+
+   `).join("")}
+
+  </tr>
+
+ `).join("")}
+
+ </tbody>
+
+ </table>
+
+ </div>
+ `;
+}
+
+
+/*
+================================================================
+RATIO ENGINE
+================================================================
+*/
+function ratioStatus(name,value){
+
+ if(value===null){
+  return `<span class="status neutral">UNAVAILABLE</span>`;
+ }
+
+ if(name==="Current Ratio"){
+  return value>=1.5
+   ?`<span class="status valid">STRONG</span>`
+   :value>=1
+   ?`<span class="status warning">REVIEW</span>`
+   :`<span class="status error">WEAK</span>`;
+ }
+
+ if(name==="Debt / Equity"){
+  return value<=1
+   ?`<span class="status valid">MODERATE</span>`
+   :value<=2
+   ?`<span class="status warning">REVIEW</span>`
+   :`<span class="status error">HIGH</span>`;
+ }
+
+ if(name==="Interest Coverage"){
+  return value>=3
+   ?`<span class="status valid">STRONG</span>`
+   :value>=1.5
+   ?`<span class="status warning">REVIEW</span>`
+   :`<span class="status error">WEAK</span>`;
+ }
+
+ return `<span class="status neutral">CALCULATED</span>`;
+}
+
+
+function renderRatios(){
+
+ const ratios=[
+  ["EBITDA Margin","EBITDA_Margin","percent"],
+  ["EBIT Margin","EBIT_Margin","percent"],
+  ["Net Margin","Net_Margin","percent"],
+  ["ROA","ROA","percent"],
+  ["ROE","ROE","percent"],
+  ["Current Ratio","Current_Ratio","number"],
+  ["Debt / Equity","Debt_Equity","number"],
+  ["Interest Coverage","Interest_Coverage","number"]
+ ];
+
+ $("ratios").innerHTML=`
+
+ <div class="table-wrap">
+
+ <table>
+
+ <thead>
+ <tr>
+  <th>Ratio</th>
+  ${APP.periods.map(p=>`<th>${p}</th>`).join("")}
+  <th>Status</th>
+ </tr>
+ </thead>
+
+ <tbody>
+
+ ${ratios.map(([name,key,type])=>`
+
+ <tr>
+
+  <td>${name}</td>
+
+  ${APP.periods.map((_,i)=>{
+
+   const value=derived(i)[key];
+
+   return `<td>${
+    type==="percent"
+     ?formatPercent(value)
+     :formatNumber(value)
+   }</td>`;
+
+  }).join("")}
+
+  <td>${ratioStatus(
+   name,
+   derived(APP.periods.length-1)[key]
+  )}</td>
+
+ </tr>
+
+ `).join("")}
+
+ </tbody>
+
+ </table>
+
+ </div>
+
+ <div class="info" style="margin-top:18px">
+  Status thresholds are analytical heuristics, not external ratings.
+  Peer benchmarks are intentionally not invented.
+ </div>
+ `;
+}
+
+
+/*
+================================================================
+VALUATION — DCF
+================================================================
+This is a transparent FCFF-style DCF.
+
+Inputs:
+- latest EBIT
+- tax rate
+- latest D&A
+- latest Capex
+- latest NWC
+- forecast growth
+- WACC
+- terminal growth
+- forecast years
+
+The model is intentionally explicit.
+================================================================
+*/
+function renderValuation(){
+
+ $("valuation").innerHTML=`
+
+ <div class="grid3">
+
+  <div class="card calc-card">
+   <h3>DCF Assumptions</h3>
+
+   <div class="field">
+    <label>WACC %</label>
+    <input id="dcfWacc" type="number" value="11" step=".1">
+   </div>
+
+   <div class="field">
+    <label>Tax Rate %</label>
+    <input id="dcfTax" type="number" value="25" step=".1">
+   </div>
+
+   <div class="field">
+    <label>FCF Growth %</label>
+    <input id="dcfGrowth" type="number" value="7" step=".1">
+   </div>
+
+   <div class="field">
+    <label>Terminal Growth %</label>
+    <input id="dcfTerminal" type="number" value="4" step=".1">
+   </div>
+
+   <div class="field">
+    <label>Forecast Years</label>
+    <input id="dcfYears" type="number" value="5">
+   </div>
+
+   <button class="btn" onclick="runDCF()">Run DCF</button>
+
+  </div>
+
+  <div class="card calc-card">
+   <h3>Latest Inputs</h3>
+   <div id="dcfInputs"></div>
+  </div>
+
+  <div class="card calc-card">
+   <h3>Valuation Output</h3>
+   <div id="dcfOutput">
+    Run the model after uploading data.
+   </div>
+  </div>
+
+ </div>
+
+ <div id="dcfTable" style="margin-top:20px"></div>
+ `;
+
+ const i=APP.periods.length-1;
+ const x=derived(i);
+
+ $("dcfInputs").innerHTML=`
+  <p><b>EBIT:</b> ${formatNumber(x.ebit)}</p>
+  <p><b>D&A:</b> ${formatNumber(metricAt("Depreciation",i))}</p>
+  <p><b>Capex:</b> ${formatNumber(x.Capex)}</p>
+  <p><b>Working Capital:</b> ${formatNumber(x.WorkingCapital)}</p>
+  <p><b>Net Debt:</b> ${formatNumber(x.Net_Debt)}</p>
+ `;
+}
+
+
+function runDCF(){
+
+ const i=APP.periods.length-1;
+ const x=derived(i);
+
+ const wacc=Number($("dcfWacc").value)/100;
+ const tax=Number($("dcfTax").value)/100;
+ const growth=Number($("dcfGrowth").value)/100;
+ const terminalGrowth=Number($("dcfTerminal").value)/100;
+ const years=Math.max(1,Number($("dcfYears").value));
+
+ const ebit=x.ebit;
+ const da=metricAt("Depreciation",i);
+ const capex=x.Capex;
+ const nwc=x.WorkingCapital;
+
+ if(
+  ebit===null||
+  da===null||
+  capex===null||
+  nwc===null
+ ){
+
+  $("dcfOutput").innerHTML=`
+   <span class="status error">INSUFFICIENT DATA</span>
+   <p>
+    DCF requires EBIT, Depreciation, Capex and Working Capital
+    in the latest period.
+   </p>
+  `;
+
+  return;
+ }
+
+ if(wacc<=terminalGrowth){
+
+  $("dcfOutput").innerHTML=`
+   <span class="status error">INVALID ASSUMPTIONS</span>
+   <p>WACC must be greater than terminal growth.</p>
+  `;
+
+  return;
+ }
+
+ /*
+ FCFF base:
+ EBIT × (1 - tax) + D&A - Capex - ΔNWC
+
+ We use the latest working capital change where a prior period exists.
+ */
+ let previousNWC=null;
+
+ if(i>0){
+  previousNWC=metricAt("WorkingCapital",i-1);
+ }
+
+ const deltaNWC=
+  previousNWC!==null
+   ? nwc-previousNWC
+   : 0;
+
+ const baseFCF=
+  ebit*(1-tax)+da-capex-deltaNWC;
+
+ let pvFCF=0;
+ const forecast=[];
+
+ for(let year=1;year<=years;year++){
+
+  const fcf=
+   baseFCF*Math.pow(1+growth,year);
+
+  const discountFactor=
+   Math.pow(1+wacc,year);
+
+  const pv=
+   fcf/discountFactor;
+
+  pvFCF+=pv;
+
+  forecast.push({
+   year,
+   fcf,
+   discountFactor,
+   pv
+  });
+ }
+
+ const terminalFCF=
+  baseFCF*Math.pow(1+growth,years)*(1+terminalGrowth);
+
+ const terminalValue=
+  terminalFCF/(wacc-terminalGrowth);
+
+ const pvTerminal=
+  terminalValue/
+  Math.pow(1+wacc,years);
+
+ const enterpriseValue=
+  pvFCF+pvTerminal;
+
+ const netDebt=x.Net_Debt;
+
+ const equityValue=
+  netDebt!==null
+   ?enterpriseValue-netDebt
+   :null;
+
+ $("dcfOutput").innerHTML=`
+
+ <div class="grid2">
+
+  ${kpi("PV Forecast FCF",formatNumber(pvFCF))}
+  ${kpi("PV Terminal Value",formatNumber(pvTerminal))}
+  ${kpi("Enterprise Value",formatNumber(enterpriseValue))}
+  ${kpi("Net Debt",formatNumber(netDebt))}
+  ${kpi("Equity Value",formatNumber(equityValue))}
+  ${kpi("Base FCFF",formatNumber(baseFCF))}
+
+ </div>
+ `;
+
+ $("dcfTable").innerHTML=`
+
+ <div class="table-wrap">
+
+ <table>
+
+ <thead>
+  <tr>
+   <th>Year</th>
+   <th>FCFF</th>
+   <th>Discount Factor</th>
+   <th>PV of FCFF</th>
+  </tr>
+ </thead>
+
+ <tbody>
+
+ ${forecast.map(f=>`
+  <tr>
+   <td>Year ${f.year}</td>
+   <td>${formatNumber(f.fcf)}</td>
+   <td>${formatNumber(f.discountFactor,4)}</td>
+   <td>${formatNumber(f.pv)}</td>
+  </tr>
+ `).join("")}
+
+ </tbody>
+
+ </table>
+
+ </div>
+
+ <div class="info" style="margin-top:15px">
+  DCF formula:
+  <b>FCFF = EBIT × (1 − Tax) + D&A − Capex − ΔNWC</b>.
+  Terminal Value uses the Gordon Growth Method.
+ </div>
+ `;
+}
+
+
+/*
+================================================================
+CREDIT ANALYSIS
+================================================================
+*/
+function renderCredit(){
+
+ const i=APP.periods.length-1;
+ const x=derived(i);
+
+ const rows=[
+  ["Current Ratio",x.Current_Ratio],
+  ["Debt / Equity",x.Debt_Equity],
+  ["Interest Coverage",x.Interest_Coverage]
+ ];
+
+ $("credit").innerHTML=`
+
+ <div class="grid3">
+
+ ${rows.map(r=>`
+
+  <div class="kpi">
+   <small>${r[0]}</small>
+   <strong>${formatNumber(r[1])}</strong>
+   <div class="sub">
+    ${ratioStatus(r[0],r[1])}
+   </div>
+  </div>
+
+ `).join("")}
+
+ </div>
+
+ <div style="margin-top:20px" class="card" >
+  <div style="padding:22px">
+
+   <h3>Credit Diagnostic</h3>
+
+   <ul style="line-height:2;color:var(--muted);font-size:13px">
+
+    <li>
+     Liquidity:
+     ${
+      x.Current_Ratio===null
+       ?"Unavailable"
+       :x.Current_Ratio>=1.5
+       ?"Comfortable"
+       :x.Current_Ratio>=1
+       ?"Requires review"
+       :"Weak"
+     }
+    </li>
+
+    <li>
+     Leverage:
+     ${
+      x.Debt_Equity===null
+       ?"Unavailable"
+       :x.Debt_Equity<=1
+       ?"Moderate"
+       :x.Debt_Equity<=2
+       ?"Elevated"
+       :"High"
+     }
+    </li>
+
+    <li>
+     Interest servicing:
+     ${
+      x.Interest_Coverage===null
+       ?"Unavailable"
+       :x.Interest_Coverage>=3
+       ?"Strong"
+       :x.Interest_Coverage>=1.5
+       ?"Moderate"
+       :"Weak"
+     }
+    </li>
+
+   </ul>
+
+   <div class="info">
+    This is a financial-analysis diagnostic, not a regulated credit
+    rating or lending decision.
+   </div>
+
+  </div>
+ </div>
+ `;
+}
+
+
+/*
+================================================================
+FORECAST
+================================================================
+Simple transparent forecast using editable assumptions.
+
+For a full modelling workflow, this section can later become
+a 3-statement forecast engine.
+================================================================
+*/
+function renderForecast(){
+
+ const i=APP.periods.length-1;
+
+ const revenue=metricAt("Revenue",i);
+ const ebitda=metricAt("EBITDA",i);
+
+ if(revenue===null){
+
+  $("forecast").innerHTML=
+   `<div class="info">Revenue is required for forecast.</div>`;
+
+  return;
+ }
+
+ const defaultGrowth=7;
+ const margin=safeDivide(ebitda,revenue);
+
+ $("forecast").innerHTML=`
+
+ <div class="grid3">
+
+  <div class="card calc-card">
+
+   <h3>Forecast Assumptions</h3>
+
+   <div class="field">
+    <label>Revenue Growth %</label>
+    <input id="forecastGrowth" type="number" value="${defaultGrowth}" step=".1">
+   </div>
+
+   <div class="field">
+    <label>Forecast Years</label>
+    <input id="forecastYears" type="number" value="5">
+   </div>
+
+   <button class="btn" onclick="runForecast()">
+    Generate Forecast
+   </button>
+
+  </div>
+
+  <div class="card calc-card">
+   <h3>Base Period</h3>
+   <p><b>Period:</b> ${APP.periods[i]}</p>
+   <p><b>Revenue:</b> ${formatNumber(revenue)}</p>
+   <p><b>EBITDA:</b> ${formatNumber(ebitda)}</p>
+   <p><b>EBITDA Margin:</b> ${formatPercent(margin)}</p>
+  </div>
+
+  <div id="forecastSummary" class="card calc-card">
+   <h3>Forecast Output</h3>
+   <p>Generate the forecast.</p>
+  </div>
+
+ </div>
+
+ <div id="forecastTable" style="margin-top:20px"></div>
+ `;
+}
+
+
+function runForecast(){
+
+ const i=APP.periods.length-1;
+
+ const revenue=metricAt("Revenue",i);
+ const ebitda=metricAt("EBITDA",i);
+
+ const growth=Number($("forecastGrowth").value)/100;
+ const years=Math.max(1,Number($("forecastYears").value));
+
+ const margin=safeDivide(ebitda,revenue);
+
+ if(revenue===null||margin===null){
+
+  $("forecastSummary").innerHTML=
+   `<span class="status error">INSUFFICIENT DATA</span>`;
+
+  return;
+ }
+
+ const rows=[];
+
+ for(let year=1;year<=years;year++){
+
+  const r=
+   revenue*Math.pow(1+growth,year);
+
+  const e=r*margin;
+
+  rows.push({
+   year,
+   revenue:r,
+   ebitda:e
+  });
+ }
+
+ $("forecastSummary").innerHTML=`
+
+  ${kpi(
+   `Revenue — Year ${years}`,
+   formatNumber(rows[years-1].revenue)
+  )}
+
+  ${kpi(
+   `EBITDA — Year ${years}`,
+   formatNumber(rows[years-1].ebitda)
+  )}
+
+ `;
+
+ $("forecastTable").innerHTML=`
+
+ <div class="table-wrap">
+
+ <table>
+
+ <thead>
+  <tr>
+   <th>Forecast Year</th>
+   <th>Revenue</th>
+   <th>EBITDA</th>
+   <th>EBITDA Margin</th>
+  </tr>
+ </thead>
+
+ <tbody>
+
+ ${rows.map(r=>`
+  <tr>
+   <td>Year ${r.year}</td>
+   <td>${formatNumber(r.revenue)}</td>
+   <td>${formatNumber(r.ebitda)}</td>
+   <td>${formatPercent(margin)}</td>
+  </tr>
+ `).join("")}
+
+ </tbody>
+
+ </table>
+
+ </div>
+ `;
+}
+
+
+/*
+================================================================
+MAPPING SCREEN
+================================================================
+Shows which metrics were detected.
+================================================================
+*/
+function renderMapping(){
+
+ const detected=Object.keys(ALIASES).filter(metric=>
+  (APP.data[metric]||[]).some(v=>v!==null)
+ );
+
+ const missing=Object.keys(ALIASES).filter(metric=>
+  !detected.includes(metric)
+ );
+
+ $("mapping").innerHTML=`
+
+ <div class="grid2">
+
+  <div class="card" style="padding:20px">
+
+   <h3>Detected Line Items</h3>
+
+   ${detected.map(m=>
+    `<p>
+     <span class="status valid">DETECTED</span>
+     <b>${m}</b>
+    </p>`
+   ).join("")||"<p>None detected.</p>"}
+
+  </div>
+
+  <div class="card" style="padding:20px">
+
+   <h3>Not Detected</h3>
+
+   ${missing.map(m=>
+    `<p>
+     <span class="status neutral">MISSING</span>
+     <b>${m}</b>
+    </p>`
+   ).join("")||"<p>All supported metrics detected.</p>"}
+
+  </div>
+
+ </div>
+
+ <div class="info" style="margin-top:18px">
+  If a line item is not detected, edit the <b>ALIASES</b> section
+  near the top of this HTML and add the exact wording used in your
+  Excel file.
+ </div>
+ `;
+}
+
+
+/*
+================================================================
+VALIDATION SCREEN
+================================================================
+*/
+function renderValidation(){
+
+ $("validation").innerHTML=`
+
+ <div class="card">
+
+ ${APP.validation.map(v=>`
+
+  <div style="
+   padding:14px 18px;
+   border-bottom:1px solid var(--line);
+  ">
+
+   <span class="status ${
+    v.type==="VALID"
+     ?"valid"
+     :v.type==="WARNING"
+     ?"warning"
+     :"error"
+   }">${v.type}</span>
+
+   <span style="margin-left:8px">${v.message}</span>
+
+  </div>
+
+ `).join("")}
+
+ </div>
+
+ <div class="info" style="margin-top:18px">
+  Calculations should be reviewed whenever validation returns
+  WARNING or ERROR. The application intentionally avoids silently
+  producing results from inconsistent financial statements.
+ </div>
+ `;
+}
+
+
+/*
+================================================================
+EXPORT MODULE
+================================================================
+================================================================
+*/
+function renderExport(){
+
+ $("export").innerHTML=`
+
+ <div class="grid3">
+
+  <div class="card calc-card">
+   <h3>Normalized Dataset</h3>
+   <p style="color:var(--muted);font-size:13px">
+    Company, Period, Metric and Value.
+   </p>
+   <button class="btn" onclick="exportNormalizedCSV()">
+    Download CSV
+   </button>
+  </div>
+
+  <div class="card calc-card">
+   <h3>Analysis Dataset</h3>
+   <p style="color:var(--muted);font-size:13px">
+    Financial metrics and calculated ratios.
+   </p>
+   <button class="btn" onclick="exportAnalysisCSV()">
+    Download CSV
+   </button>
+  </div>
+
+  <div class="card calc-card">
+   <h3>PDF</h3>
+   <p style="color:var(--muted);font-size:13px">
+    Use the browser's print engine to save the complete analysis.
+   </p>
+   <button class="btn gold" onclick="window.print()">
+    Print / Save PDF
+   </button>
+  </div>
+
+ </div>
+
+ <div class="info" style="margin-top:20px">
+  The normalized dataset is suitable as a starting point for
+  Power BI. Recommended model:
+  <b>Company + Period + Metric + Value</b>.
+ </div>
+ `;
+}
+
+
+function downloadCSV(filename,rows){
+
+ const csv=rows.map(row=>
+  row.map(value=>
+   `"${String(value??"").replace(/"/g,'""')}"`
+  ).join(",")
+ ).join("\n");
+
+ const blob=new Blob(
+  [csv],
+  {type:"text/csv;charset=utf-8"}
+ );
+
+ const url=URL.createObjectURL(blob);
+
+ const a=document.createElement("a");
+ a.href=url;
+ a.download=filename;
+ a.click();
+
+ URL.revokeObjectURL(url);
+}
+
+
+function exportNormalizedCSV(){
+
+ const rows=[
+  ["Dataset","Period","Metric","Value"]
+ ];
+
+ Object.keys(APP.data).forEach(metric=>{
+
+  APP.periods.forEach((period,i)=>{
+
+   rows.push([
+    APP.company,
+    period,
+    metric,
+    APP.data[metric]?.[i]??""
+   ]);
+
+  });
+
+ });
+
+ downloadCSV(
+  "finance_normalized_dataset.csv",
+  rows
+ );
+}
+
+
+function exportAnalysisCSV(){
+
+ const rows=[[
+  "Dataset",
+  "Period",
+  "Revenue",
+  "EBITDA",
+  "EBIT",
+  "PAT",
+  "EBITDA Margin",
+  "EBIT Margin",
+  "Net Margin",
+  "ROA",
+  "ROE",
+  "Current Ratio",
+  "Debt Equity",
+  "Interest Coverage",
+  "Net Debt"
+ ]];
+
+ APP.periods.forEach((period,i)=>{
+
+  const x=derived(i);
+
+  rows.push([
+   APP.company,
+   period,
+   x.revenue,
+   x.ebitda,
+   x.ebit,
+   x.pat,
+   x.EBITDA_Margin,
+   x.EBIT_Margin,
+   x.Net_Margin,
+   x.ROA,
+   x.ROE,
+   x.Current_Ratio,
+   x.Debt_Equity,
+   x.Interest_Coverage,
+   x.Net_Debt
+  ]);
+
+ });
+
+ downloadCSV(
+  "finance_analysis_dataset.csv",
+  rows
+ );
+}
+
+
+/*
+================================================================
+GENERAL CALCULATORS
+================================================================
+*/
+function calculatorCAGR(){
+
+ const start=Number($("cagrStart").value);
+ const end=Number($("cagrEnd").value);
+ const years=Number($("cagrYears").value);
+
+ if(start<=0||end<0||years<=0){
+  $("cagrResult").textContent="Invalid inputs.";
+  return;
+ }
+
+ const result=Math.pow(end/start,1/years)-1;
+
+ $("cagrResult").innerHTML=
+  `<b>${formatPercent(result)}</b>
+   <br>Formula: (Ending / Beginning)^(1 / Years) − 1`;
+}
+
+
+function calculatorNPV(){
+
+ const rate=Number($("npvRate").value)/100;
+ const initial=Number($("npvInitial").value);
+ const flows=String($("npvFlows").value)
+  .split(",")
+  .map(number)
+  .filter(v=>v!==null);
+
+ if(!Number.isFinite(rate)||!Number.isFinite(initial)||!flows.length){
+  $("npvResult").textContent="Invalid inputs.";
+  return;
+ }
+
+ let pv=-initial;
+
+ flows.forEach((cashflow,index)=>{
+  pv+=cashflow/Math.pow(1+rate,index+1);
+ });
+
+ $("npvResult").innerHTML=
+  `<b>${formatNumber(pv)}</b>
+   <br>Formula: Σ CFₜ / (1+r)ᵗ − Initial Investment`;
+}
+
+
+function npvAtRate(flows,rate){
+
+ let result=0;
+
+ flows.forEach((cf,i)=>{
+  result+=cf/Math.pow(1+rate,i);
+ });
+
+ return result;
+}
+
+
+function calculatorIRR(){
+
+ const flows=String($("irrFlows").value)
+  .split(",")
+  .map(number)
+  .filter(v=>v!==null);
+
+ if(flows.length<2){
+  $("irrResult").textContent="Enter at least two cash flows.";
+  return;
+ }
+
+ let rate=.1;
+
+ /*
+ Newton-Raphson
+ */
+ for(let iteration=0;iteration<100;iteration++){
+
+  let f=0;
+  let derivative=0;
+
+  flows.forEach((cf,t)=>{
+
+   f+=cf/Math.pow(1+rate,t);
+
+   if(t>0){
+    derivative+=
+     -t*cf/Math.pow(1+rate,t+1);
+   }
+
+  });
+
+  if(Math.abs(derivative)<1e-12)break;
+
+  const next=rate-f/derivative;
+
+  if(!Number.isFinite(next)||next<=-0.999999){
+   break;
+  }
+
+  if(Math.abs(next-rate)<1e-10){
+   rate=next;
+   break;
+  }
+
+  rate=next;
+ }
+
+ const npv=npvAtRate(flows,rate);
+
+ if(!Number.isFinite(rate)){
+  $("irrResult").textContent="IRR could not be solved.";
+  return;
+ }
+
+ $("irrResult").innerHTML=
+  `<b>${(rate*100).toFixed(2)}%</b>
+   <br>NPV at calculated IRR: ${formatNumber(npv)}`;
+}
+
+
+function calculatorWACC(){
+
+ const E=Number($("waccE").value);
+ const D=Number($("waccD").value);
+ const Ke=Number($("waccKe").value)/100;
+ const Kd=Number($("waccKd").value)/100;
+ const tax=Number($("waccTax").value)/100;
+
+ const total=E+D;
+
+ if(total<=0){
+  $("waccResult").textContent="Invalid capital structure.";
+  return;
+ }
+
+ const wacc=
+  (E/total)*Ke+
+  (D/total)*Kd*(1-tax);
+
+ $("waccResult").innerHTML=
+  `<b>${formatPercent(wacc)}</b>
+   <br>Formula:
+   E/(D+E)×Ke + D/(D+E)×Kd×(1−Tax)`;
+}
+
+
+function calculatorDSCR(){
+
+ const cash=Number($("dscrCash").value);
+ const interest=Number($("dscrInterest").value);
+ const principal=Number($("dscrPrincipal").value);
+
+ const result=
+  safeDivide(
+   cash,
+   interest+principal
+  );
+
+ $("dscrResult").innerHTML=
+  result===null
+   ?"Invalid inputs."
+   :`<b>${formatNumber(result)}</b>
+     <br>Formula: Cash Available / (Interest + Principal)`;
+}
+
+
+function calculatorEVEBITDA(){
+
+ const ev=Number($("evValue").value);
+ const ebitda=Number($("evEbitda").value);
+
+ const result=safeDivide(ev,ebitda);
+
+ $("evResult").innerHTML=
+  result===null
+   ?"Invalid inputs."
+   :`<b>${formatNumber(result)}x</b>
+     <br>Formula: Enterprise Value / EBITDA`;
+}
+
+
+/*
+================================================================
+BLANK STRUCTURE
+================================================================
+Does not contain any financial values.
+Useful to inspect the interface before uploading real data.
+================================================================
+*/
+$("demoBtn").onclick=()=>{
+
+ APP.file=null;
+ APP.fileType="blank";
+ APP.company="Uploaded Dataset";
+
+ APP.periods=[
+  "FY1",
+  "FY2",
+  "FY3"
+ ];
+
+ APP.data={};
+
+ Object.keys(ALIASES).forEach(metric=>{
+  APP.data[metric]=[
+   null,
+   null,
+   null
+  ];
+ });
+
+ APP.validation=[
+  {
+   type:"WARNING",
+   message:"Blank structure loaded. Upload your own financial data to calculate results."
+  }
+ ];
+
+ $("fileInfo").textContent=
+  "Blank structure loaded — no sample financial values included.";
+
+ $("workspace").classList.remove("hidden");
+
+ renderAll();
+
+ showToast("Blank structure loaded.");
+};
+
+
+/*
+================================================================
+TAB NAVIGATION
+================================================================
+*/
+document.querySelectorAll(".tab").forEach(button=>{
+
+ button.addEventListener("click",()=>{
+
+  document.querySelectorAll(".tab")
+   .forEach(x=>x.classList.remove("active"));
+
+  document.querySelectorAll(".panel")
+   .forEach(x=>x.classList.add("hidden"));
+
+  button.classList.add("active");
+
+  $(button.dataset.panel)
+   .classList.remove("hidden");
+ });
+});
+
+
+/*
+================================================================
+INITIAL EMPTY STATE
+================================================================
+*/
+$("workspace").classList.add("hidden");
+
+</script>
+</body>
+</html>
